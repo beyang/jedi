@@ -659,8 +659,14 @@ class Definition(use_metaclass(CachedMetaClass, BaseDefinition)):
         :rtype: list of Definition
         """
         defs = self._follow_statements_imports()
+
         # For now we don't want base classes or evaluate decorators.
-        defs = [d.base if isinstance(d, (er.Class, er.Function)) else d for d in defs]
+        for i in xrange(0, len(defs)):
+            if isinstance(defs[i], (er.Class)):
+                defs[i] = defs[i].base
+            elif isinstance(defs[i], (er.Function)):
+                defs[i] = defs[i].base_func
+
         iterable = (defined_names(self._evaluator, d) for d in defs)
         iterable = list(iterable)
         return list(chain.from_iterable(iterable))
