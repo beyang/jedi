@@ -96,8 +96,13 @@ class Evaluator(object):
         self.execution_recursion_detector = recursion.ExecutionRecursionDetector()
         self.analysis = []
 
+    # def find_names(self, scope, name_str, position=None, is_goto=False):
+    #     f = finder.NameFinder(self, scope, name_str, position)
+    #     if is_goto:
+    #         return f.
+
     def find_types(self, scope, name_str, position=None, search_global=False,
-                   is_goto=False, resolve_decorator=True):
+                   is_goto=False, resolve_decorator=True, follow_statements=True):
         """
         This is the search function. The most important part to debug.
         `remove_statements` and `filter_statements` really are the core part of
@@ -106,10 +111,16 @@ class Evaluator(object):
         :param position: Position of the last statement -> tuple of line, column
         :return: List of Names. Their parents are the types.
         """
-        f = finder.NameFinder(self, scope, name_str, position)
+        f = finder.NameFinder(self, scope, name_str, position=position, follow_statements=follow_statements)
         scopes = f.scopes(search_global)
+
+
+        # import pdb
+        # pdb.set_trace()
+
         if is_goto:
             return f.filter_name(scopes)
+
         return f.find(scopes, resolve_decorator, search_global)
 
     @memoize_default(default=[], evaluator_is_first_arg=True)
@@ -124,6 +135,13 @@ class Evaluator(object):
 
         :param stmt: A `pr.Statement`.
         """
+
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
         debug.dbg('eval_statement %s (%s)', stmt, seek_name)
         expression_list = stmt.expression_list()
         if isinstance(stmt, FakeStatement):
@@ -185,6 +203,16 @@ class Evaluator(object):
         return precedence.calculate(self, left, _precedence.operator, right)
 
     def eval_statement_element(self, element):
+
+
+
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
+
         if pr.Array.is_type(element, pr.Array.NOARRAY):
             try:
                 lst_cmp = element[0].expression_list()[0]
@@ -215,6 +243,14 @@ class Evaluator(object):
             return self.eval_call(element)
 
     def eval_call(self, call):
+
+
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
         """Follow a call is following a function, variable, string, etc."""
         path = call.generate_call_path()
 
@@ -231,17 +267,46 @@ class Evaluator(object):
         """
         current = next(path)
 
+
+        # Check if this is the last component in the path.
+        # TODO(bliu): this is dup'd in _follow_path()
+        path, path_ = itertools.tee(path)
+        is_last = False
+        try:
+            next(path_)
+        except StopIteration:
+            is_last = True
+
+
+
+
         if isinstance(current, pr.Array):
             types = [iterable.Array(self, current)]
         else:
             if isinstance(current, pr.NamePart):
                 # This is the first global lookup.
+                #
+                # NOTE(beyang): here's it tries to match the name to the
+                # underlying type... We want it to just match the name in the
+                # surrounding scope, not go all the way to the type of the
+                # instance
                 types = self.find_types(scope, current, position=position,
-                                        search_global=True)
+                                        search_global=True, follow_statements=(not is_last))
+                # types = self.find_types(scope, current, position=position,
+                #                         search_global=True)
             else:
                 # for pr.Literal
                 types = [compiled.create(self, current.value)]
             types = imports.follow_imports(self, types)
+
+
+
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
 
         return self.follow_path(path, types, scope)
 
@@ -281,6 +346,22 @@ class Evaluator(object):
             return None
         debug.dbg('_follow_path: %s in scope %s', current, typ)
 
+
+
+
+
+        # Check if this is the last component in the path.
+        path, path_ = itertools.tee(path)
+        is_last = False
+        try:
+            next(path_)
+        except StopIteration:
+            is_last = True
+
+
+
+
+
         result = []
         if isinstance(current, pr.Array):
             # This must be an execution, either () or [].
@@ -305,7 +386,7 @@ class Evaluator(object):
                 # This is the typical lookup while chaining things.
                 if filter_private_variable(typ, scope, current):
                     return []
-            types = self.find_types(typ, current)
+            types = self.find_types(typ, current, follow_statements=(not is_last))
             result = imports.follow_imports(self, types)
         return self.follow_path(path, result, scope)
 

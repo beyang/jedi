@@ -1,5 +1,5 @@
 """
-Searcjing for names with given scope and name. This is very central in Jedi and
+Searching for names with given scope and name. This is very central in Jedi and
 Python. The name resolution is quite complicated with descripter,
 ``__getattribute__``, ``__getattr__``, ``global``, etc.
 
@@ -30,11 +30,12 @@ from jedi.evaluate import precedence
 
 
 class NameFinder(object):
-    def __init__(self, evaluator, scope, name_str, position=None):
+    def __init__(self, evaluator, scope, name_str, position=None, follow_statements=True):
         self._evaluator = evaluator
         self.scope = scope
         self.name_str = name_str
         self.position = position
+        self.follow_statements = follow_statements
 
     @debug.increase_indent
     def find(self, scopes, resolve_decorator=True, search_global=False):
@@ -43,8 +44,24 @@ class NameFinder(object):
             # access it.
             return []
 
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
         names = self.filter_name(scopes)
+        ### NOTE(beyang): ah, here is where conversion happens?
+        ## TODO: START HERE
+        # return names
         types = self._names_to_types(names, resolve_decorator)
+
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
 
         if not names and not types \
                 and not (isinstance(self.name_str, pr.NamePart)
@@ -73,6 +90,14 @@ class NameFinder(object):
         Filters all variables of a scope (which are defined in the
         `scope_names_generator`), until the name fits.
         """
+
+
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
         result = []
         for name_list_scope, name_list in scope_names_generator:
             break_scopes = []
@@ -209,17 +234,23 @@ class NameFinder(object):
             flow_scope = flow_scope.parent
 
         for name in names:
+            # import pdb
+            # pdb.set_trace()
+
             typ = name.parent
             if typ.isinstance(pr.ForFlow):
                 types += self._handle_for_loops(typ)
             elif isinstance(typ, pr.Param):
                 types += self._eval_param(typ)
             elif typ.isinstance(pr.Statement):
-                if typ.is_global():
-                    # global keyword handling.
-                    types += evaluator.find_types(typ.parent.parent, str(name))
+                if self.follow_statements:
+                    if typ.is_global():
+                        # global keyword handling.
+                        types += evaluator.find_types(typ.parent.parent, str(name))
+                    else:
+                        types += self._remove_statements(typ, name)
                 else:
-                    types += self._remove_statements(typ, name)
+                    types.append(name)
             else:
                 if isinstance(typ, pr.Class):
                     typ = er.Class(evaluator, typ)

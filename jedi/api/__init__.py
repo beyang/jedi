@@ -374,6 +374,21 @@ class Script(object):
         goto_path = self._user_context.get_path_under_cursor()
         context = self._user_context.get_context()
         definitions = set()
+
+
+
+
+
+
+
+        # import pdb
+        # pdb.set_trace()
+
+
+
+
+
+
         if next(context) in ('class', 'def'):
             definitions = set([self._parser.user_scope()])
         else:
@@ -397,6 +412,20 @@ class Script(object):
         definitions = resolve_import_paths(definitions)
         d = set([classes.Definition(self._evaluator, s) for s in definitions
                  if s is not imports.ImportWrapper.GlobalNamespace])
+        return helpers.sorted_definitions(d)
+
+    def goto_assignments_resolve_imports(self):
+        def resolve_import_paths(scopes):
+            for s in scopes.copy():
+                if isinstance(s, imports.ImportWrapper):
+                    scopes.remove(s)
+                    scopes.update(resolve_import_paths(set(s.follow())))
+            return scopes
+
+        results, _ = self._goto()
+        results = resolve_import_paths(results)
+        d = [classes.Definition(self._evaluator, d) for d in set(results)
+             if d is not imports.ImportWrapper.GlobalNamespace]
         return helpers.sorted_definitions(d)
 
     def goto_assignments(self):
