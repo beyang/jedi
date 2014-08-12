@@ -71,7 +71,8 @@ class Script(object):
     :type encoding: str
     """
     def __init__(self, source=None, line=None, column=None, path=None,
-                 encoding='utf-8', source_path=None, source_encoding=None):
+                 encoding='utf-8', source_path=None, source_encoding=None,
+                 resolve_variables_to_types=True):
         if source_path is not None:
             warnings.warn("Use path instead of source_path.", DeprecationWarning)
             path = source_path
@@ -102,7 +103,7 @@ class Script(object):
         debug.reset_time()
         self._user_context = UserContext(self.source, self._pos)
         self._parser = UserContextParser(self.source, path, self._pos, self._user_context)
-        self._evaluator = Evaluator()
+        self._evaluator = Evaluator(resolve_variables_to_types=resolve_variables_to_types)
         debug.speed('init')
 
     @property

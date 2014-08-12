@@ -30,11 +30,12 @@ from jedi.evaluate import precedence
 
 
 class NameFinder(object):
-    def __init__(self, evaluator, scope, name_str, position=None):
+    def __init__(self, evaluator, scope, name_str, position=None, follow_statements=True):
         self._evaluator = evaluator
         self.scope = scope
         self.name_str = name_str
         self.position = position
+        self.follow_statements = follow_statements
 
     @debug.increase_indent
     def find(self, scopes, resolve_decorator=True, search_global=False):
@@ -215,11 +216,14 @@ class NameFinder(object):
             elif isinstance(typ, pr.Param):
                 types += self._eval_param(typ)
             elif typ.isinstance(pr.Statement):
-                if typ.is_global():
-                    # global keyword handling.
-                    types += evaluator.find_types(typ.parent.parent, str(name))
+                if self.follow_statements:
+                    if typ.is_global():
+                        # global keyword handling.
+                        types += evaluator.find_types(typ.parent.parent, str(name))
+                    else:
+                        types += self._remove_statements(typ, name)
                 else:
-                    types += self._remove_statements(typ, name)
+                    types.append(name)
             else:
                 if isinstance(typ, pr.Class):
                     typ = er.Class(evaluator, typ)
