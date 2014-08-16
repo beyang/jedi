@@ -275,7 +275,11 @@ class Evaluator(object):
         iter_paths = itertools.tee(path, len(types))
 
         for i, typ in enumerate(types):
-            fp = self._follow_path(iter_paths[i], typ, call_scope)
+            try:
+                fp = self._follow_path(iter_paths[i], typ, call_scope)
+            except:
+                continue
+
             if fp is not None:
                 results_new += fp
             else:
