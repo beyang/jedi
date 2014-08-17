@@ -72,7 +72,7 @@ class Script(object):
     """
     def __init__(self, source=None, line=None, column=None, path=None,
                  encoding='utf-8', source_path=None, source_encoding=None,
-                 resolve_variables_to_types=True):
+                 resolve_variables_to_types=True, clear_cache=True):
         if source_path is not None:
             warnings.warn("Use path instead of source_path.", DeprecationWarning)
             path = source_path
@@ -99,7 +99,9 @@ class Script(object):
             raise ValueError('`column` parameter is not in a valid range.')
         self._pos = line, column
 
-        cache.clear_caches()
+        if clear_cache:
+            cache.clear_caches()
+
         debug.reset_time()
         self._user_context = UserContext(self.source, self._pos)
         self._parser = UserContextParser(self.source, path, self._pos, self._user_context)
