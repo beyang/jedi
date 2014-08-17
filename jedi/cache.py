@@ -47,7 +47,12 @@ class ParserCacheItem(object):
         self.change_time = change_time
 
 
+never_clear_cache = False
+
 def clear_caches(delete_all=False):
+    if never_clear_cache:
+        return
+
     """ Jedi caches many things, that should be completed after each completion
     finishes.
 
@@ -176,6 +181,9 @@ def cache_star_import(func):
 
 
 def _invalidate_star_import_cache_module(module, only_main=False):
+    if never_clear_cache:
+        return
+
     """ Important if some new modules are being reparsed """
     with common.ignored(KeyError):
         t, mods = _star_import_cache[module]

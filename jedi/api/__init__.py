@@ -16,6 +16,7 @@ from itertools import chain
 
 from jedi._compatibility import next, unicode, builtins
 from jedi.parser import Parser
+from jedi.parser.fast import FastParser
 from jedi.parser.tokenize import source_tokens
 from jedi.parser import representation as pr
 from jedi.parser.user_context import UserContext, UserContextParser
@@ -702,6 +703,14 @@ def defined_names(source, path=None, encoding='utf-8'):
     )
     return classes.defined_names(Evaluator(), parser.module)
 
+def precache_parser(*files):
+    for f in files:
+        f = os.path.abspath(f)
+        with open(f) as f_:
+            source = f_.read()
+            source = common.source_to_unicode(source, 'utf-8')
+            parser = FastParser(source, f)
+            cache.save_parser(f, None, parser, pickling=False)
 
 def preload_module(*modules):
     """

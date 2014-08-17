@@ -65,7 +65,8 @@ class CachedFastParser(type):
             p = super(CachedFastParser, self).__call__(source, module_path)
         else:
             p = pi.parser  # pi is a `cache.ParserCacheItem`
-            p.update(source)
+            if not cache.never_clear_cache:
+                p.update(source)
         return p
 
 
