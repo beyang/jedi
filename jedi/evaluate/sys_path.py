@@ -90,6 +90,7 @@ def _paths_from_call_expression(module_path, call):
         return
     cmd = names[2]
     exe = call.execution
+    path = None
     if cmd == 'insert' and len(exe) == 2:
         path = _paths_from_insert(module_path, exe)
     elif cmd == 'append' and len(exe) == 1:
@@ -128,23 +129,28 @@ def sys_path_with_modifications(evaluator, module):
     with common.ignored(OSError):
         os.chdir(os.path.dirname(module.path))
 
-    result = _check_module(module)
-    result += _detect_django_path(module.path)
-    # buildout scripts often contain the same sys.path modifications
-    # the set here is used to avoid duplicate sys.path entries
-    buildout_paths = set()
-    for module_path in _get_buildout_scripts(module.path):
-        try:
-            with open(module_path, 'rb') as f:
-                source = f.read()
-        except IOError:
-            pass
-        else:
-            p = Parser(common.source_to_unicode(source), module_path)
-            for path in _check_module(p.module):
-                if path not in buildout_paths:
-                    buildout_paths.add(path)
-                    result.append(path)
+    try:
+        result = _check_module(module)
+        result += _detect_django_path(module.path)
+        # buildout scripts often contain the same sys.path modifications
+        # the set here is used to avoid duplicate sys.path entries
+        buildout_paths = set()
+        for module_path in _get_buildout_scripts(module.path):
+            try:
+                with open(module_path, 'rb') as f:
+                    source = f.read()
+            except IOError:
+                pass
+            else:
+                p = Parser(common.source_to_unicode(source), module_path)
+                for path in _check_module(p.module):
+                    if path not in buildout_paths:
+                        buildout_paths.add(path)
+                        result.append(path)
+    except Exception as e:
+        os.chdir(curdir)
+        raise e
+
     # cleanup, back to old directory
     os.chdir(curdir)
     return list(result)
