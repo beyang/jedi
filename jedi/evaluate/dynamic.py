@@ -94,8 +94,18 @@ def search_params(evaluator, param):
                     if not last and not call_path_simple.index(func_name) != i:
                         continue
                     scopes = [scope]
+
                     if first:
-                        scopes = evaluator.eval_call_path(iter(first), c.parent, pos)
+                        # Kludge to force resolution of name to types in eval_call_path()
+                        old_resolve_vars_to_types = evaluator.resolve_variables_to_types
+                        evaluator.resolve_variables_to_types = True
+                        try:
+                            scopes = evaluator.eval_call_path(iter(first), c.parent, pos)
+                        except Exception as e:
+                            evaluator.resolve_variables_to_types = old_resolve_vars_to_types
+                            raise e
+                        evaluator.resolve_variables_to_types = old_resolve_vars_to_types
+
                         pos = None
                     from jedi.evaluate import representation as er
                     for scope in scopes:
