@@ -95,7 +95,7 @@ def search_params(evaluator, param):
                         continue
                     scopes = [scope]
                     if first:
-                        scopes = evaluator.eval_call_path(iter(first), c.parent, pos, force_resolve_vars_to_types=True)
+                        scopes = evaluator.eval_call_path(iter(first), c.parent, pos)
                         pos = None
                     from jedi.evaluate import representation as er
                     for scope in scopes:
