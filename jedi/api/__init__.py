@@ -106,7 +106,8 @@ class Script(object):
         debug.reset_time()
         self._user_context = UserContext(self.source, self._pos)
         self._parser = UserContextParser(self.source, path, self._pos, self._user_context)
-        self._evaluator = Evaluator(resolve_variables_to_types=resolve_variables_to_types)
+        self._evaluator = Evaluator()
+        self.resolve_variables_to_types = resolve_variables_to_types
         debug.speed('init')
 
     @property
@@ -266,7 +267,7 @@ class Script(object):
                 # "pseudo" statement, the Jedi evaluator can find the assignees.
                 if user_stmt is not None:
                     eval_stmt.start_pos = user_stmt.end_pos
-            scopes = self._evaluator.eval_statement(eval_stmt)
+            scopes = self._evaluator.eval_statement(eval_stmt, resolve_variables_to_types=self.resolve_variables_to_types)
         return scopes
 
     def _get_under_cursor_stmt(self, cursor_txt):
