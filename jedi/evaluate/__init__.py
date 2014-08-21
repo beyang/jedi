@@ -88,13 +88,14 @@ from jedi.evaluate.helpers import FakeStatement
 
 
 class Evaluator(object):
-    def __init__(self):
+    def __init__(self, resolve_variables_to_types=True):
         self.memoize_cache = {}  # for memoize decorators
         self.import_cache = {}  # like `sys.modules`.
         self.compiled_cache = {}  # see `compiled.create()`
         self.recursion_detector = recursion.RecursionDetector()
         self.execution_recursion_detector = recursion.ExecutionRecursionDetector()
         self.analysis = []
+        self.resolve_variables_to_types = resolve_variables_to_types
 
     def find_types(self, scope, name_str, position=None, search_global=False,
                    is_goto=False, resolve_decorator=True, follow_statements=True):
@@ -117,7 +118,7 @@ class Evaluator(object):
     @memoize_default(default=[], evaluator_is_first_arg=True)
     @recursion.recursion_decorator
     @debug.increase_indent
-    def eval_statement(self, stmt, seek_name=None, resolve_variables_to_types=True):
+    def eval_statement(self, stmt, seek_name=None):
         """
         The starting point of the completion. A statement always owns a call
         list, which are the calls, that a statement does. In case multiple
@@ -131,7 +132,7 @@ class Evaluator(object):
         if isinstance(stmt, FakeStatement):
             return expression_list  # Already contains the results.
 
-        result = self.eval_expression_list(expression_list, resolve_variables_to_types)
+        result = self.eval_expression_list(expression_list)
 
         ass_details = stmt.assignment_details
         if ass_details and ass_details[0][1] != '=' and not isinstance(stmt, er.InstanceElement):  # TODO don't check for this.
@@ -161,7 +162,7 @@ class Evaluator(object):
             result = new_result
         return result
 
-    def eval_expression_list(self, expression_list, resolve_variables_to_types=True):
+    def eval_expression_list(self, expression_list):
         """
         `expression_list` can be either `pr.Array` or `list of list`.
         It is used to evaluate a two dimensional object, that has calls, arrays and
@@ -171,7 +172,7 @@ class Evaluator(object):
         p = precedence.create_precedence(expression_list)
         return self.process_precedence_element(p) or []
 
-    def process_precedence_element(self, el, resolve_variables_to_types=True):
+    def process_precedence_element(self, el):
         if el is None:
             return None
         else:
@@ -179,29 +180,29 @@ class Evaluator(object):
                 return self._eval_precedence(el)
             else:
                 # normal element, no operators
-                return self.eval_statement_element(el, resolve_variables_to_types)
+                return self.eval_statement_element(el)
 
     def _eval_precedence(self, _precedence):
         left = self.process_precedence_element(_precedence.left)
         right = self.process_precedence_element(_precedence.right)
         return precedence.calculate(self, left, _precedence.operator, right)
 
-    def eval_statement_element(self, element, resolve_variables_to_types=True):
+    def eval_statement_element(self, element):
         if pr.Array.is_type(element, pr.Array.NOARRAY):
             try:
                 lst_cmp = element[0].expression_list()[0]
                 if not isinstance(lst_cmp, pr.ListComprehension):
                     raise IndexError
             except IndexError:
-                r = list(itertools.chain.from_iterable(self.eval_statement(s, resolve_variables_to_types)
+                r = list(itertools.chain.from_iterable(self.eval_statement(s)
                                                        for s in element))
             else:
                 r = [iterable.GeneratorComprehension(self, lst_cmp)]
             call_path = element.generate_call_path()
             next(call_path, None)  # the first one has been used already
-            return self.follow_path(call_path, r, element.parent, resolve_variables_to_types)
+            return self.follow_path(call_path, r, element.parent)
         elif isinstance(element, pr.ListComprehension):
-            return self.eval_statement(element.stmt, resolve_variables_to_types)
+            return self.eval_statement(element.stmt)
         elif isinstance(element, pr.Lambda):
             return [er.Function(self, element)]
         # With things like params, these can also be functions...
@@ -214,9 +215,9 @@ class Evaluator(object):
         elif isinstance(element, Token):
             return []
         else:
-            return self.eval_call(element, resolve_variables_to_types)
+            return self.eval_call(element)
 
-    def eval_call(self, call, resolve_variables_to_types=True):
+    def eval_call(self, call):
         """Follow a call is following a function, variable, string, etc."""
         path = call.generate_call_path()
 
@@ -225,7 +226,7 @@ class Evaluator(object):
         while not s.parent.isinstance(pr.IsScope):
             s = s.parent
         par = s.parent
-        return self.eval_call_path(path, par, s.start_pos, resolve_variables_to_types)
+        return self.eval_call_path(path, par, s.start_pos)
 
     def _has_next(self, path):
         """
@@ -240,7 +241,7 @@ class Evaluator(object):
             return path, False
         return path, True
 
-    def eval_call_path(self, path, scope, position, resolve_variables_to_types=True):
+    def eval_call_path(self, path, scope, position):
         """
         Follows a path generated by `pr.StatementElement.generate_call_path()`.
         """
@@ -254,15 +255,15 @@ class Evaluator(object):
                 # This is the first global lookup.
                 types = self.find_types(scope, current, position=position,
                                         search_global=True,
-                                        follow_statements=(path_has_next or resolve_variables_to_types))
+                                        follow_statements=(path_has_next or self.resolve_variables_to_types))
             else:
                 # for pr.Literal
                 types = [compiled.create(self, current.value)]
             types = imports.follow_imports(self, types)
 
-        return self.follow_path(path, types, scope, resolve_variables_to_types)
+        return self.follow_path(path, types, scope)
 
-    def follow_path(self, path, types, call_scope, resolve_variables_to_types=True):
+    def follow_path(self, path, types, call_scope):
         """
         Follows a path like::
 
@@ -275,7 +276,7 @@ class Evaluator(object):
 
         for i, typ in enumerate(types):
             try:
-                fp = self._follow_path(iter_paths[i], typ, call_scope, resolve_variables_to_types)
+                fp = self._follow_path(iter_paths[i], typ, call_scope)
             except:
                 continue
 
@@ -286,7 +287,7 @@ class Evaluator(object):
                 return types
         return results_new
 
-    def _follow_path(self, path, typ, scope, resolve_variables_to_types=True):
+    def _follow_path(self, path, typ, scope):
         """
         Uses a generator and tries to complete the path, e.g.::
 
@@ -328,9 +329,9 @@ class Evaluator(object):
                 if filter_private_variable(typ, scope, current):
                     return []
             types = self.find_types(typ, current,
-                                    follow_statements=(path_has_next or resolve_variables_to_types))
+                                    follow_statements=(path_has_next or self.resolve_variables_to_types))
             result = imports.follow_imports(self, types)
-        return self.follow_path(path, result, scope, resolve_variables_to_types)
+        return self.follow_path(path, result, scope)
 
     @debug.increase_indent
     def execute(self, obj, params=(), evaluate_generator=False):
