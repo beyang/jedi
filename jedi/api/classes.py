@@ -584,6 +584,9 @@ class Definition(use_metaclass(CachedMetaClass, BaseDefinition)):
             return None
         elif isinstance(d, pr.NamePart):
             name = d
+        else:
+            return None
+
         return unicode(name)
 
     @property
