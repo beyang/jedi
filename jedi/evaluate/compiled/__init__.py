@@ -36,6 +36,9 @@ class CompiledObject(Base):
     def doc(self):
         return inspect.getdoc(self.obj) or ''
 
+    def get_code(self):
+        return u''
+
     @property
     def params(self):
         params_str, ret = self._parse_function_doc()
